@@ -31,7 +31,6 @@ You can run these benchmarks by typing
 ```go test github.com/robskie/ranksel -bench=.*``` from terminal.
 
 ```
-BenchmarkAdd        50000000     34.1 ns/op
 BenchmarkRank1      10000000    160 ns/op
 BenchmarkRank0      10000000    170 ns/op
 BenchmarkSelect1     5000000    253 ns/op

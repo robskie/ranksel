@@ -3,9 +3,6 @@
 package ranksel
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
 	"unsafe"
 
 	"github.com/robskie/bit"
@@ -29,7 +26,7 @@ const (
 //
 // See http://dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf for more details.
 type BitVector struct {
-	bits []uint64
+	bits *bit.Array
 
 	// ranks[i] is the number of 1s
 	// from 0 to index (i*sr)-1
@@ -41,7 +38,6 @@ type BitVector struct {
 	// set bit.
 	indices []int
 
-	length   int
 	popcount int
 }
 
@@ -52,7 +48,7 @@ func NewBitVector(n int) *BitVector {
 		panic("ranksel: vector size must be greater than or equal 0")
 	}
 
-	b := make([]uint64, 0, (n>>6)+1)
+	b := bit.NewArray(n)
 	rs := make([]int, 1, (n/sr)+1)
 	idx := make([]int, 1)
 
@@ -69,32 +65,17 @@ func (v *BitVector) Add(bits uint64, size int) {
 		panic("ranksel: bit size must be in range [1,64]")
 	}
 
-	// Extend bits if necessary
-	lenbits := len(v.bits)
-	freespace := (lenbits << 6) - v.length
-	overflow := size - freespace
-	if overflow > 0 {
-		v.bits = append(v.bits, 0)
-	}
+	// Add bits
+	v.bits.Add(bits, size)
+	vlength := v.bits.Len()
 
-	// Append bits
-	idx := lenbits - 1
-	if freespace > 0 {
-		v.bits[idx] |= bits << uint(v.length&63)
-	}
-
-	if overflow > 0 {
-		v.bits[idx+1] |= bits >> uint(freespace)
-	}
-
-	// Increment size and popcount
-	v.length += size
+	// Increment popcount
 	popcnt := bit.PopCount(bits)
 	v.popcount += popcnt
 
 	// Update rank sampling
 	lenranks := len(v.ranks)
-	overflow = v.length - (lenranks * sr)
+	overflow := vlength - (lenranks * sr)
 	if overflow > 0 {
 		v.ranks = append(v.ranks, 0)
 
@@ -109,17 +90,24 @@ func (v *BitVector) Add(bits uint64, size int) {
 		v.indices = append(v.indices, 0)
 
 		sel := select1_64(bits, popcnt-overflow+1)
-		v.indices[lenidx] = (v.length - size + sel) & ^0x3F
+		v.indices[lenidx] = (vlength - size + sel) & ^0x3F
 	}
+}
+
+// Get returns the uint64 representation of
+// bits starting from index idx given the bit size.
+func (v *BitVector) Get(idx, size int) uint64 {
+	return v.bits.Get(idx, size)
 }
 
 // Bit returns the bit value at index i.
 func (v *BitVector) Bit(i int) uint {
-	if i >= v.length {
+	if i >= v.bits.Len() {
 		panic("ranksel: index out of range")
 	}
 
-	if v.bits[i>>6]&(1<<uint(i&63)) != 0 {
+	vbits := v.bits.Bits()
+	if vbits[i>>6]&(1<<uint(i&63)) != 0 {
 		return 1
 	}
 	return 0
@@ -128,7 +116,7 @@ func (v *BitVector) Bit(i int) uint {
 // Rank1 counts the number of 1s from
 // the beginning up to the ith index.
 func (v *BitVector) Rank1(i int) int {
-	if i >= v.length {
+	if i >= v.bits.Len() {
 		panic("ranksel: index out of range")
 	}
 
@@ -138,11 +126,12 @@ func (v *BitVector) Rank1(i int) int {
 
 	aidx := i & 63
 	bidx := i >> 6
-	for _, b := range v.bits[ip:bidx] {
+	vbits := v.bits.Bits()
+	for _, b := range vbits[ip:bidx] {
 		rank += bit.PopCount(b)
 	}
 
-	return rank + rank1_64(v.bits[bidx], aidx)
+	return rank + rank1_64(vbits[bidx], aidx)
 }
 
 // Rank0 counts the number of 0s from
@@ -176,8 +165,9 @@ func (v *BitVector) Select1(i int) int {
 
 	idx := 0
 	rank := rq[k]
+	vbits := v.bits.Bits()
 	aidx := ((q + k) * sr) >> 6
-	for ii, b := range v.bits[aidx:] {
+	for ii, b := range vbits[aidx:] {
 		rank += bit.PopCount(b)
 
 		if rank >= i {
@@ -198,7 +188,7 @@ func (v *BitVector) Select1(i int) int {
 // if i is zero or greater than the number of zeroes.
 // This is slower than Select1 in most cases.
 func (v *BitVector) Select0(i int) int {
-	if i > (v.length - v.popcount) {
+	if i > (v.bits.Len() - v.popcount) {
 		panic("ranksel: input exceeds number of 0s")
 	} else if i == 0 {
 		panic("ranksel: input must be greater than 0")
@@ -222,9 +212,10 @@ func (v *BitVector) Select0(i int) int {
 	imin--
 
 	idx := 0
+	vbits := v.bits.Bits()
 	aidx := (imin * sr) >> 6
 	rank0 := (imin * sr) - v.ranks[imin]
-	for ii, b := range v.bits[aidx:] {
+	for ii, b := range vbits[aidx:] {
 		b = ^b
 		rank0 += bit.PopCount(b)
 
@@ -244,7 +235,7 @@ func (v *BitVector) Select0(i int) int {
 
 // Len returns the number of bits stored.
 func (v *BitVector) Len() int {
-	return v.length
+	return v.bits.Len()
 }
 
 // PopCount returns the total number of 1s.
@@ -255,22 +246,16 @@ func (v *BitVector) PopCount() int {
 // Size returns the vector size in bytes.
 func (v *BitVector) Size() int {
 	sizeofInt := int(unsafe.Sizeof(int(0)))
-	size := len(v.bits) * 8
+
+	size := v.bits.Size()
 	size += len(v.ranks) * sizeofInt
 	size += len(v.indices) * sizeofInt
 
 	return size
 }
 
-// String returns a bit string
-// representation of the vector.
+// String returns a hexadecimal
+// string representation of the vector.
 func (v *BitVector) String() string {
-	buf := new(bytes.Buffer)
-	for i := len(v.bits) - 1; i >= 0; i-- {
-		bits := fmt.Sprintf("%8b", v.bits[i])
-		bits = strings.Replace(bits, " ", "0", -1)
-		fmt.Fprintf(buf, "%s [%d-%d] ", bits, (i<<3)+7, i<<3)
-	}
-
-	return buf.String()
+	return v.bits.String()
 }

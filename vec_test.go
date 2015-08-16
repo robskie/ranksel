@@ -8,29 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAdd(t *testing.T) {
-	vec := NewBitVector(100)
-
-	// Simple case
-	vec.Add(0xA, 4)
-	vec.Add(0xF, 60)
-	assert.Equal(t, 64, vec.Len())
-	assert.Equal(t, 1, len(vec.bits))
-	assert.EqualValues(t, 0xFA, vec.bits[0])
-
-	// Byte array full then add
-	vec.Add(0xE, 4)
-	assert.Equal(t, 68, vec.Len())
-	assert.Equal(t, 2, len(vec.bits))
-	assert.EqualValues(t, 0xE, vec.bits[1])
-
-	// Byte array partially full then add
-	vec.Add(0x75<<56, 64)
-	assert.Equal(t, 132, vec.Len())
-	assert.Equal(t, 3, len(vec.bits))
-	assert.EqualValues(t, 0x7, vec.bits[2])
-}
-
 func TestBit(t *testing.T) {
 	vec := NewBitVector(0)
 	vec.Add(0x5555, 16)
@@ -183,26 +160,11 @@ func TestOverhead(t *testing.T) {
 		vec.Add(^uint64(0), 64)
 	}
 
-	rawsize := float64(len(vec.bits) * 8)
+	rawsize := float64(vec.bits.Size())
 	overhead := float64(vec.Size()) - rawsize
 	percentage := (overhead / rawsize) * 100
 
 	fmt.Printf("=== OVERHEAD: %.2f%%\n", percentage)
-}
-
-func BenchmarkAdd(b *testing.B) {
-	vec := NewBitVector(0)
-
-	// Generate random bit sizes
-	sz := make([]int, b.N)
-	for i := 0; i < b.N; i++ {
-		sz[i] = rand.Intn(64) + 1
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		vec.Add(0, sz[i])
-	}
 }
 
 var bigVector *BitVector
