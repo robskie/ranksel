@@ -24,8 +24,8 @@ implementation of Select1 is more optimized than Select0. The only case where
 Select0 is faster than Select1 is when the bit density is lower than 3% as shown
 from BenchmarkSelectDX where X is the bit density. Another thing to point out is
 that Select1 starts to slow down when the bit density gets lower than 3%. So you
-might want to use another data structure if you have a spare bitmap and you want
-a fast Select1 operation.
+might want to use another data structure if you have a sparse bitmap and you
+want a fast Select1 operation.
 
 You can run these benchmarks by typing
 ```go test github.com/robskie/ranksel -bench=.*``` from terminal.

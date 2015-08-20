@@ -79,7 +79,7 @@ func (v *BitVector) Add(bits uint64, size int) {
 	if overflow > 0 {
 		v.ranks = append(v.ranks, 0)
 
-		rank := rank1_64(bits, size-overflow-1)
+		rank := bit.Rank(bits, size-overflow-1)
 		v.ranks[lenranks] = v.popcount - popcnt + rank
 	}
 
@@ -89,7 +89,7 @@ func (v *BitVector) Add(bits uint64, size int) {
 	if overflow > 0 {
 		v.indices = append(v.indices, 0)
 
-		sel := select1_64(bits, popcnt-overflow+1)
+		sel := bit.Select(bits, popcnt-overflow+1)
 		v.indices[lenidx] = (vlength - size + sel) & ^0x3F
 	}
 }
@@ -131,7 +131,7 @@ func (v *BitVector) Rank1(i int) int {
 		rank += bit.PopCount(b)
 	}
 
-	return rank + rank1_64(vbits[bidx], aidx)
+	return rank + bit.Rank(vbits[bidx], aidx)
 }
 
 // Rank0 counts the number of 0s from
@@ -175,7 +175,7 @@ func (v *BitVector) Select1(i int) int {
 			popcnt := bit.PopCount(b)
 
 			idx = (aidx + ii) << 6
-			idx += select1_64(b, popcnt-overflow)
+			idx += bit.Select(b, popcnt-overflow)
 
 			break
 		}
@@ -224,7 +224,7 @@ func (v *BitVector) Select0(i int) int {
 			popcnt := bit.PopCount(b)
 
 			idx = (aidx + ii) << 6
-			idx += select1_64(b, popcnt-overflow)
+			idx += bit.Select(b, popcnt-overflow)
 
 			break
 		}
