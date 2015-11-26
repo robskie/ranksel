@@ -9,7 +9,7 @@ import (
 )
 
 func TestBit(t *testing.T) {
-	vec := NewBitVector(0)
+	vec := NewBitVector(nil)
 	vec.Add(0x5555, 16)
 	expected := 1
 	for i := 0; i < 16; i++ {
@@ -21,7 +21,7 @@ func TestBit(t *testing.T) {
 }
 
 func TestRank(t *testing.T) {
-	vec := NewBitVector(1e6)
+	vec := NewBitVector(nil)
 	ranks1 := make([]int, 1e6)
 	ranks0 := make([]int, 1e6)
 
@@ -58,7 +58,9 @@ func TestRank(t *testing.T) {
 // array (few 1s). A sparse bit array results in
 // duplicate values in the rank sampling.
 func TestRank1Sparse(t *testing.T) {
-	vec := NewBitVector(1e6)
+	const sr = 1024
+
+	vec := NewBitVector(nil)
 	ranks := make([]int, 1e6)
 
 	popcount := 0
@@ -83,7 +85,7 @@ func TestRank1Sparse(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
-	vec := NewBitVector(1e6)
+	vec := NewBitVector(nil)
 	sel1 := []int{}
 	sel0 := []int{}
 
@@ -113,7 +115,9 @@ func TestSelect(t *testing.T) {
 }
 
 func TestSelect1Sparse(t *testing.T) {
-	vec := NewBitVector(1e6)
+	const sr = 1024
+
+	vec := NewBitVector(nil)
 	sel1 := []int{}
 
 	for i := 0; i < 1e6; i++ {
@@ -134,7 +138,9 @@ func TestSelect1Sparse(t *testing.T) {
 }
 
 func TestSelect0Sparse(t *testing.T) {
-	vec := NewBitVector(1e6)
+	const sr = 1024
+
+	vec := NewBitVector(nil)
 	sel0 := []int{}
 
 	for i := 0; i < 1e6; i++ {
@@ -155,7 +161,7 @@ func TestSelect0Sparse(t *testing.T) {
 }
 
 func TestOverhead(t *testing.T) {
-	vec := NewBitVector(64 * 1e6)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e6; i++ {
 		vec.Add(^uint64(0), 64)
 	}
@@ -172,7 +178,7 @@ var bigVector *BitVector
 func initBigVector() {
 	if bigVector == nil {
 		size := 1 << 28
-		bigVector = NewBitVector(size)
+		bigVector = NewBitVector(nil)
 		for i := 0; i < size/64; i++ {
 			bigVector.Add(uint64(rand.Int63()), 64)
 		}
@@ -238,7 +244,7 @@ func BenchmarkSelect0(b *testing.B) {
 
 func BenchmarkSelect1D3(b *testing.B) {
 	// Create vector with 3% bit density
-	vec := NewBitVector(1e7)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e7; i++ {
 		v := rand.Intn(33)
 		if v == 1 {
@@ -261,7 +267,7 @@ func BenchmarkSelect1D3(b *testing.B) {
 
 func BenchmarkSelect0D3(b *testing.B) {
 	// Create vector with 3% bit density
-	vec := NewBitVector(1e7)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e7; i++ {
 		v := rand.Intn(33)
 		if v == 1 {
@@ -285,7 +291,7 @@ func BenchmarkSelect0D3(b *testing.B) {
 
 func BenchmarkSelect1D2(b *testing.B) {
 	// Create vector with 2% bit density
-	vec := NewBitVector(1e7)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e7; i++ {
 		v := rand.Intn(50)
 		if v == 1 {
@@ -308,7 +314,7 @@ func BenchmarkSelect1D2(b *testing.B) {
 
 func BenchmarkSelect0D2(b *testing.B) {
 	// Create vector with 2% bit density
-	vec := NewBitVector(1e7)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e7; i++ {
 		v := rand.Intn(50)
 		if v == 1 {
@@ -332,7 +338,7 @@ func BenchmarkSelect0D2(b *testing.B) {
 
 func BenchmarkSelect1D1(b *testing.B) {
 	// Create vector with 1% bit density
-	vec := NewBitVector(1e7)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e7; i++ {
 		v := rand.Intn(100)
 		if v == 1 {
@@ -355,7 +361,7 @@ func BenchmarkSelect1D1(b *testing.B) {
 
 func BenchmarkSelect0D1(b *testing.B) {
 	// Create vector with 1% bit density
-	vec := NewBitVector(1e7)
+	vec := NewBitVector(nil)
 	for i := 0; i < 1e7; i++ {
 		v := rand.Intn(100)
 		if v == 1 {

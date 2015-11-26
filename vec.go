@@ -8,17 +8,26 @@ import (
 	"github.com/robskie/bit"
 )
 
-const (
-	// sr is the rank sampling block size.
+// Options determines the size of the rank and
+// select sampling block. Lower values translates
+// to faster operations but results in larger size.
+type Options struct {
+	// Sr is the rank sampling block size.
 	// This represents the number of bits in
-	// each rank sampling block.
-	sr = 1024
+	// each rank sampling block. Default is 1024.
+	Sr int
 
-	// ss is the number of 1s in each select
-	// sampling block. Note that the number of
-	// bits in each block varies.
-	ss = 8192
-)
+	// Ss is the select sampling block size.
+	// This represents the number of 1s in each
+	// select sampling block. Default is 8192.
+	Ss int
+}
+
+// NewOptions creates an Options
+// object with default values.
+func NewOptions() *Options {
+	return &Options{1024, 8192}
+}
 
 // BitVector is a bitmap with added data structure described by G. Navarro and
 // E. Providel's `A Structure for Plain Bitmaps: Combined Sampling` in "Fast,
@@ -39,23 +48,25 @@ type BitVector struct {
 	indices []int
 
 	popcount int
+
+	opts *Options
 }
 
-// NewBitVector creates a new BitVector
-// with an initial bit capacity of n.
-func NewBitVector(n int) *BitVector {
-	if n < 0 {
-		panic("ranksel: vector size must be greater than or equal 0")
+// NewBitVector creates a new BitVector.
+func NewBitVector(opts *Options) *BitVector {
+	if opts == nil {
+		opts = NewOptions()
 	}
 
-	b := bit.NewArray(n)
-	rs := make([]int, 1, (n/sr)+1)
+	b := bit.NewArray(0)
+	rs := make([]int, 1)
 	idx := make([]int, 1)
 
 	return &BitVector{
 		bits:    b,
 		ranks:   rs,
 		indices: idx,
+		opts:    opts,
 	}
 }
 
@@ -75,7 +86,7 @@ func (v *BitVector) Add(bits uint64, size int) {
 
 	// Update rank sampling
 	lenranks := len(v.ranks)
-	overflow := vlength - (lenranks * sr)
+	overflow := vlength - (lenranks * v.opts.Sr)
 	if overflow > 0 {
 		v.ranks = append(v.ranks, 0)
 
@@ -85,7 +96,7 @@ func (v *BitVector) Add(bits uint64, size int) {
 
 	// Update select sampling
 	lenidx := len(v.indices)
-	overflow = v.popcount - (lenidx * ss)
+	overflow = v.popcount - (lenidx * v.opts.Ss)
 	if overflow > 0 {
 		v.indices = append(v.indices, 0)
 
@@ -120,8 +131,8 @@ func (v *BitVector) Rank1(i int) int {
 		panic("ranksel: index out of range")
 	}
 
-	j := i / sr
-	ip := (j * sr) >> 6
+	j := i / v.opts.Sr
+	ip := (j * v.opts.Sr) >> 6
 	rank := v.ranks[j]
 
 	aidx := i & 63
@@ -150,8 +161,8 @@ func (v *BitVector) Select1(i int) int {
 		panic("ranksel: input must be greater than 0")
 	}
 
-	j := (i - 1) / ss
-	q := v.indices[j] / sr
+	j := (i - 1) / v.opts.Ss
+	q := v.indices[j] / v.opts.Sr
 
 	k := 0
 	r := 0
@@ -166,7 +177,7 @@ func (v *BitVector) Select1(i int) int {
 	idx := 0
 	rank := rq[k]
 	vbits := v.bits.Bits()
-	aidx := ((q + k) * sr) >> 6
+	aidx := ((q + k) * v.opts.Sr) >> 6
 	for ii, b := range vbits[aidx:] {
 		rank += bit.PopCount(b)
 
@@ -202,7 +213,7 @@ func (v *BitVector) Select0(i int) int {
 	for imin < imax {
 		imid := imin + ((imax - imin) >> 1)
 
-		rmid0 := (imid * sr) - v.ranks[imid]
+		rmid0 := (imid * v.opts.Sr) - v.ranks[imid]
 		if rmid0 < i {
 			imin = imid + 1
 		} else {
@@ -213,8 +224,8 @@ func (v *BitVector) Select0(i int) int {
 
 	idx := 0
 	vbits := v.bits.Bits()
-	aidx := (imin * sr) >> 6
-	rank0 := (imin * sr) - v.ranks[imin]
+	aidx := (imin * v.opts.Sr) >> 6
+	rank0 := (imin * v.opts.Sr) - v.ranks[imin]
 	for ii, b := range vbits[aidx:] {
 		b = ^b
 		rank0 += bit.PopCount(b)
