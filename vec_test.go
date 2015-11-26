@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/robskie/bit"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -158,6 +159,25 @@ func TestSelect0Sparse(t *testing.T) {
 			break
 		}
 	}
+}
+
+func TestEncodeDecode(t *testing.T) {
+	vec := NewBitVector(nil)
+	for i := 0; i < 1e3; i++ {
+		b := uint64(rand.Int63())
+		vec.Add(b, bit.Size(b))
+	}
+
+	data, _ := vec.GobEncode()
+	nvec := NewBitVector(nil)
+	nvec.GobDecode(data)
+
+	// Check if vec and nvec are equal
+	assert.Equal(t, vec.bits, nvec.bits)
+	assert.Equal(t, vec.ranks, nvec.ranks)
+	assert.Equal(t, vec.indices, nvec.indices)
+	assert.Equal(t, vec.popcount, nvec.popcount)
+	assert.Equal(t, vec.opts, nvec.opts)
 }
 
 func TestOverhead(t *testing.T) {

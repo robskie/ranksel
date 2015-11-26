@@ -3,6 +3,8 @@
 package ranksel
 
 import (
+	"bytes"
+	"encoding/gob"
 	"unsafe"
 
 	"github.com/robskie/bit"
@@ -242,6 +244,34 @@ func (v *BitVector) Select0(i int) int {
 	}
 
 	return idx
+}
+
+// GobEncode encodes this vector into gob streams.
+func (v *BitVector) GobEncode() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	enc := gob.NewEncoder(buf)
+
+	enc.Encode(v.bits)
+	enc.Encode(v.ranks)
+	enc.Encode(v.indices)
+	enc.Encode(v.popcount)
+	enc.Encode(v.opts)
+
+	return buf.Bytes(), nil
+}
+
+// GobDecode populates this vector from gob streams.
+func (v *BitVector) GobDecode(data []byte) error {
+	buf := bytes.NewReader(data)
+	dec := gob.NewDecoder(buf)
+
+	dec.Decode(v.bits)
+	dec.Decode(&v.ranks)
+	dec.Decode(&v.indices)
+	dec.Decode(&v.popcount)
+	dec.Decode(v.opts)
+
+	return nil
 }
 
 // Len returns the number of bits stored.
