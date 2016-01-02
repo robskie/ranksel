@@ -5,6 +5,7 @@ package ranksel
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"unsafe"
 
 	"github.com/robskie/bit"
@@ -246,18 +247,34 @@ func (v *BitVector) Select0(i int) int {
 	return idx
 }
 
+func checkErr(err ...error) error {
+	for _, e := range err {
+		if e != nil {
+			return e
+		}
+	}
+
+	return nil
+}
+
 // GobEncode encodes this vector into gob streams.
 func (v *BitVector) GobEncode() ([]byte, error) {
 	buf := &bytes.Buffer{}
 	enc := gob.NewEncoder(buf)
 
-	enc.Encode(v.bits)
-	enc.Encode(v.ranks)
-	enc.Encode(v.indices)
-	enc.Encode(v.popcount)
-	enc.Encode(v.opts)
+	err := checkErr(
+		enc.Encode(v.bits),
+		enc.Encode(v.ranks),
+		enc.Encode(v.indices),
+		enc.Encode(v.popcount),
+		enc.Encode(v.opts),
+	)
 
-	return buf.Bytes(), nil
+	if err != nil {
+		err = fmt.Errorf("ranksel: encode failed (%v)", err)
+	}
+
+	return buf.Bytes(), err
 }
 
 // GobDecode populates this vector from gob streams.
@@ -265,13 +282,21 @@ func (v *BitVector) GobDecode(data []byte) error {
 	buf := bytes.NewReader(data)
 	dec := gob.NewDecoder(buf)
 
-	dec.Decode(v.bits)
-	dec.Decode(&v.ranks)
-	dec.Decode(&v.indices)
-	dec.Decode(&v.popcount)
-	dec.Decode(v.opts)
+	v.opts = NewOptions()
+	v.bits = bit.NewArray(0)
+	err := checkErr(
+		dec.Decode(v.bits),
+		dec.Decode(&v.ranks),
+		dec.Decode(&v.indices),
+		dec.Decode(&v.popcount),
+		dec.Decode(v.opts),
+	)
 
-	return nil
+	if err != nil {
+		err = fmt.Errorf("ranksel: decode failed (%v)", err)
+	}
+
+	return err
 }
 
 // Len returns the number of bits stored.
